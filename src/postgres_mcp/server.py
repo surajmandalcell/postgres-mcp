@@ -557,6 +557,288 @@ async def get_top_queries(
         return format_error_response(str(e))
 
 
+# =============================================================================
+# Migration Tools
+# =============================================================================
+
+# Global variable for migrations directory
+current_migrations_dir: str = ""
+
+
+@mcp.tool(
+    description="Get the status of database migrations. Shows applied and pending migrations, "
+    "their batch numbers, and detects any checksum mismatches."
+)
+async def migration_status(
+    migrations_dir: str = Field(description="Directory containing migration files"),
+) -> ResponseType:
+    """Get migration status showing applied and pending migrations."""
+    try:
+        from pathlib import Path
+        from .migrations import MigrationManager
+
+        sql_driver = await get_sql_driver()
+        manager = MigrationManager(
+            sql_driver=sql_driver,
+            migrations_dir=Path(migrations_dir),
+        )
+        status = await manager.status()
+        return format_text_response(status)
+    except Exception as e:
+        logger.error(f"Error getting migration status: {e}")
+        return format_error_response(str(e))
+
+
+@mcp.tool(
+    description="Apply pending database migrations. Supports applying all pending migrations, "
+    "a specific number of steps, or up to a target migration."
+)
+async def migration_up(
+    migrations_dir: str = Field(description="Directory containing migration files"),
+    steps: int = Field(description="Number of migrations to apply (default: all)", default=0),
+    target: str = Field(description="Target migration name to migrate up to (inclusive)", default=""),
+    dry_run: bool = Field(description="If True, show SQL without executing", default=False),
+) -> ResponseType:
+    """Apply pending migrations."""
+    try:
+        from pathlib import Path
+        from .migrations import MigrationManager
+
+        sql_driver = await get_sql_driver()
+        manager = MigrationManager(
+            sql_driver=sql_driver,
+            migrations_dir=Path(migrations_dir),
+        )
+        result = await manager.migrate_up(
+            steps=steps if steps > 0 else None,
+            target=target if target else None,
+            dry_run=dry_run,
+        )
+
+        if result.dry_run:
+            return format_text_response({
+                "dry_run": True,
+                "pending_count": result.pending_count,
+                "migrations": result.migrations,
+                "sql_preview": result.sql_preview,
+            })
+
+        return format_text_response({
+            "success": result.success,
+            "applied_count": result.applied_count,
+            "batch": result.batch,
+            "migrations": result.migrations,
+            "error": result.error,
+        })
+    except Exception as e:
+        logger.error(f"Error applying migrations: {e}")
+        return format_error_response(str(e))
+
+
+@mcp.tool(
+    description="Rollback database migrations. Can rollback the latest batch, "
+    "a specific number of steps, or all migrations."
+)
+async def migration_down(
+    migrations_dir: str = Field(description="Directory containing migration files"),
+    steps: int = Field(description="Number of migrations to rollback (default: latest batch)", default=0),
+    all_migrations: bool = Field(description="Rollback all migrations", default=False),
+    dry_run: bool = Field(description="If True, show SQL without executing", default=False),
+) -> ResponseType:
+    """Rollback migrations."""
+    try:
+        from pathlib import Path
+        from .migrations import MigrationManager
+
+        sql_driver = await get_sql_driver()
+        manager = MigrationManager(
+            sql_driver=sql_driver,
+            migrations_dir=Path(migrations_dir),
+        )
+
+        if all_migrations:
+            result = await manager.rollback_all()
+        else:
+            result = await manager.rollback(
+                steps=steps if steps > 0 else None,
+                dry_run=dry_run,
+            )
+
+        if result.dry_run:
+            return format_text_response({
+                "dry_run": True,
+                "pending_rollback_count": result.rolled_back_count,
+                "migrations": result.migrations,
+                "sql_preview": result.sql_preview,
+            })
+
+        return format_text_response({
+            "success": result.success,
+            "rolled_back_count": result.rolled_back_count,
+            "migrations": result.migrations,
+            "error": result.error,
+        })
+    except Exception as e:
+        logger.error(f"Error rolling back migrations: {e}")
+        return format_error_response(str(e))
+
+
+@mcp.tool(
+    description="Generate a new migration file with timestamp prefix. "
+    "Creates both up.sql and down.sql files in a new migration directory."
+)
+async def migration_generate(
+    migrations_dir: str = Field(description="Directory containing migration files"),
+    name: str = Field(description="Name/description for the migration (e.g., 'create_users_table')"),
+    up_sql: str = Field(description="SQL for the up migration (optional)", default=""),
+    down_sql: str = Field(description="SQL for the down/rollback migration (optional)", default=""),
+) -> ResponseType:
+    """Generate a new migration file."""
+    try:
+        from pathlib import Path
+        from .migrations import MigrationManager
+
+        sql_driver = await get_sql_driver()
+        manager = MigrationManager(
+            sql_driver=sql_driver,
+            migrations_dir=Path(migrations_dir),
+        )
+
+        migration_path = await manager.generate_migration(
+            name=name,
+            up_sql=up_sql,
+            down_sql=down_sql,
+        )
+
+        return format_text_response({
+            "success": True,
+            "migration_path": str(migration_path),
+            "name": migration_path.name,
+            "files": ["up.sql", "down.sql"],
+        })
+    except Exception as e:
+        logger.error(f"Error generating migration: {e}")
+        return format_error_response(str(e))
+
+
+@mcp.tool(
+    description="Pull the current database schema. Introspects tables, views, sequences, "
+    "and enums from the specified schemas."
+)
+async def schema_pull(
+    schemas: str = Field(
+        description="Comma-separated list of schema names to pull (default: 'public')",
+        default="public"
+    ),
+) -> ResponseType:
+    """Pull schema from the database."""
+    try:
+        from .migrations import SchemaPull
+
+        sql_driver = await get_sql_driver()
+        puller = SchemaPull(sql_driver=sql_driver)
+
+        schema_list = [s.strip() for s in schemas.split(",")]
+        schema_info = await puller.pull_schema(schema_list)
+
+        # Convert to serializable format
+        result = {
+            "tables": [
+                {
+                    "schema": t.schema,
+                    "name": t.name,
+                    "columns": [
+                        {
+                            "name": c.name,
+                            "type": c.data_type,
+                            "nullable": c.is_nullable,
+                            "default": c.column_default,
+                        }
+                        for c in t.columns
+                    ],
+                    "constraints": [
+                        {
+                            "name": c.name,
+                            "type": c.constraint_type,
+                            "columns": c.columns,
+                        }
+                        for c in t.constraints
+                    ],
+                    "indexes": [
+                        {
+                            "name": i.name,
+                            "columns": i.columns,
+                            "unique": i.is_unique,
+                            "type": i.index_type,
+                        }
+                        for i in t.indexes
+                    ],
+                }
+                for t in schema_info.tables
+            ],
+            "views": [
+                {
+                    "schema": v.schema,
+                    "name": v.name,
+                    "materialized": v.is_materialized,
+                }
+                for v in schema_info.views
+            ],
+            "sequences": [
+                {
+                    "schema": s.schema,
+                    "name": s.name,
+                    "type": s.data_type,
+                }
+                for s in schema_info.sequences
+            ],
+            "enums": [
+                {
+                    "schema": e.schema,
+                    "name": e.name,
+                    "values": e.values,
+                }
+                for e in schema_info.enums
+            ],
+        }
+
+        return format_text_response(result)
+    except Exception as e:
+        logger.error(f"Error pulling schema: {e}")
+        return format_error_response(str(e))
+
+
+@mcp.tool(
+    description="Generate SQL for creating a table based on its current schema. "
+    "Useful for creating migration files from existing tables."
+)
+async def generate_table_sql(
+    schema_name: str = Field(description="Schema name", default="public"),
+    table_name: str = Field(description="Table name"),
+) -> ResponseType:
+    """Generate CREATE TABLE SQL for an existing table."""
+    try:
+        from .migrations import SchemaPull
+
+        sql_driver = await get_sql_driver()
+        puller = SchemaPull(sql_driver=sql_driver)
+
+        tables = await puller.pull_tables(schema_name)
+        target_table = next((t for t in tables if t.name == table_name), None)
+
+        if not target_table:
+            return format_error_response(f"Table '{schema_name}.{table_name}' not found")
+
+        sql = puller.generate_create_table_sql(target_table)
+        return format_text_response({
+            "table": f"{schema_name}.{table_name}",
+            "sql": sql,
+        })
+    except Exception as e:
+        logger.error(f"Error generating table SQL: {e}")
+        return format_error_response(str(e))
+
+
 async def main():
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="PostgreSQL MCP Server")
