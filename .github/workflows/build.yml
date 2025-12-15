@@ -1,4 +1,4 @@
-name: Postgres MCP CI
+name: pgsql-mcp CI
 
 on:
   push:
@@ -12,7 +12,7 @@ on:
       - "**/README.md"
 
 jobs:
-  postgres-mcp-ci:
+  pgsql-mcp-ci:
     runs-on: ubuntu-latest
 
     steps:

@@ -3,7 +3,6 @@
 import logging
 from dataclasses import dataclass
 from dataclasses import field
-from typing import Any
 from typing import Optional
 
 from ..sql import SqlDriver
@@ -120,7 +119,7 @@ class SchemaPull:
         """
         self.sql_driver = sql_driver
 
-    async def pull_schema(self, schemas: list[str] = None) -> SchemaInfo:
+    async def pull_schema(self, schemas: list[str] | None = None) -> SchemaInfo:
         """Pull complete schema information from the database.
 
         Args:
@@ -172,7 +171,7 @@ class SchemaPull:
         AND t.table_type = 'BASE TABLE'
         ORDER BY t.table_name
         """
-        rows = await self.sql_driver.execute_query(tables_query, params=(schema,))
+        rows = await self.sql_driver.execute_query(tables_query, params=[schema])
         if not rows:
             return []
 
@@ -220,7 +219,7 @@ class SchemaPull:
         AND c.table_name = %s
         ORDER BY c.ordinal_position
         """
-        rows = await self.sql_driver.execute_query(query, params=(schema, table))
+        rows = await self.sql_driver.execute_query(query, params=[schema, table])
         if not rows:
             return []
 
@@ -279,7 +278,7 @@ class SchemaPull:
             cc.check_clause
         ORDER BY tc.constraint_name
         """
-        rows = await self.sql_driver.execute_query(query, params=(schema, table))
+        rows = await self.sql_driver.execute_query(query, params=[schema, table])
         if not rows:
             return []
 
@@ -319,7 +318,7 @@ class SchemaPull:
         GROUP BY i.relname, ix.indisunique, ix.indisprimary, am.amname, ix.indexrelid
         ORDER BY i.relname
         """
-        rows = await self.sql_driver.execute_query(query, params=(schema, table))
+        rows = await self.sql_driver.execute_query(query, params=[schema, table])
         if not rows:
             return []
 
@@ -353,7 +352,7 @@ class SchemaPull:
         WHERE v.table_schema = %s
         ORDER BY v.table_name
         """
-        rows = await self.sql_driver.execute_query(query, params=(schema,))
+        rows = await self.sql_driver.execute_query(query, params=[schema])
         if not rows:
             return []
 
@@ -383,7 +382,7 @@ class SchemaPull:
         WHERE s.sequence_schema = %s
         ORDER BY s.sequence_name
         """
-        rows = await self.sql_driver.execute_query(query, params=(schema,))
+        rows = await self.sql_driver.execute_query(query, params=[schema])
         if not rows:
             return []
 
@@ -416,7 +415,7 @@ class SchemaPull:
         GROUP BY n.nspname, t.typname
         ORDER BY t.typname
         """
-        rows = await self.sql_driver.execute_query(query, params=(schema,))
+        rows = await self.sql_driver.execute_query(query, params=[schema])
         if not rows:
             return []
 
@@ -481,15 +480,9 @@ class SchemaPull:
                 lines.append(fk_sql)
             elif constraint.constraint_type == "UNIQUE":
                 cols = ", ".join(f'"{c}"' for c in constraint.columns)
-                lines.append(
-                    f'ALTER TABLE "{table.schema}"."{table.name}" '
-                    f'ADD CONSTRAINT "{constraint.name}" UNIQUE ({cols});'
-                )
+                lines.append(f'ALTER TABLE "{table.schema}"."{table.name}" ADD CONSTRAINT "{constraint.name}" UNIQUE ({cols});')
             elif constraint.constraint_type == "CHECK" and constraint.check_clause:
-                lines.append(
-                    f'ALTER TABLE "{table.schema}"."{table.name}" '
-                    f'ADD CONSTRAINT "{constraint.name}" CHECK ({constraint.check_clause});'
-                )
+                lines.append(f'ALTER TABLE "{table.schema}"."{table.name}" ADD CONSTRAINT "{constraint.name}" CHECK ({constraint.check_clause});')
 
         # Add indexes (excluding primary key)
         for index in table.indexes:
@@ -499,17 +492,12 @@ class SchemaPull:
         # Add comment
         if table.comment:
             escaped_comment = table.comment.replace("'", "''")
-            lines.append(
-                f"COMMENT ON TABLE \"{table.schema}\".\"{table.name}\" IS '{escaped_comment}';"
-            )
+            lines.append(f'COMMENT ON TABLE "{table.schema}"."{table.name}" IS \'{escaped_comment}\';')
 
         # Add column comments
         for col in table.columns:
             if col.comment:
                 escaped_comment = col.comment.replace("'", "''")
-                lines.append(
-                    f'COMMENT ON COLUMN "{table.schema}"."{table.name}"."{col.name}" '
-                    f"IS '{escaped_comment}';"
-                )
+                lines.append(f'COMMENT ON COLUMN "{table.schema}"."{table.name}"."{col.name}" IS \'{escaped_comment}\';')
 
         return "\n".join(lines)

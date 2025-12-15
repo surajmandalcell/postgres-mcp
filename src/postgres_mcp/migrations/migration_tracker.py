@@ -4,12 +4,32 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
+from typing import cast
+
+from typing_extensions import LiteralString
+from typing_extensions import TypedDict
 
 from ..sql import SqlDriver
 
 logger = logging.getLogger(__name__)
 
 MIGRATION_TABLE_NAME = "_postgres_mcp_migrations"
+
+
+class MigrationStatusEntry(TypedDict):
+    """Type for a single migration entry in status."""
+
+    name: str
+    applied_at: str
+    batch: int
+
+
+class MigrationStatus(TypedDict):
+    """Type for migration status summary."""
+
+    total_applied: int
+    latest_batch: int
+    migrations: list[MigrationStatusEntry]
 
 
 @dataclass
@@ -55,7 +75,7 @@ class MigrationTracker:
         CREATE INDEX IF NOT EXISTS idx_{MIGRATION_TABLE_NAME}_batch
         ON {self.table_name} (batch);
         """
-        await self.sql_driver.execute_query(create_table_sql)
+        await self.sql_driver.execute_query(cast(LiteralString, create_table_sql))
         logger.info(f"Migration table ensured: {self.table_name}")
 
     async def get_applied_migrations(self) -> list[MigrationRecord]:
@@ -69,7 +89,7 @@ class MigrationTracker:
         FROM {self.table_name}
         ORDER BY id ASC
         """
-        rows = await self.sql_driver.execute_query(query)
+        rows = await self.sql_driver.execute_query(cast(LiteralString, query))
         if not rows:
             return []
 
@@ -94,7 +114,7 @@ class MigrationTracker:
         SELECT COALESCE(MAX(batch), 0) as latest_batch
         FROM {self.table_name}
         """
-        rows = await self.sql_driver.execute_query(query)
+        rows = await self.sql_driver.execute_query(cast(LiteralString, query))
         if rows:
             return rows[0].cells["latest_batch"]
         return 0
@@ -120,8 +140,8 @@ class MigrationTracker:
         VALUES (%s, %s, %s, %s)
         """
         await self.sql_driver.execute_query(
-            query,
-            params=(name, checksum, batch, executed_sql),
+            cast(LiteralString, query),
+            params=[name, checksum, batch, executed_sql],
         )
         logger.info(f"Recorded migration: {name} (batch {batch})")
 
@@ -135,7 +155,7 @@ class MigrationTracker:
         DELETE FROM {self.table_name}
         WHERE name = %s
         """
-        await self.sql_driver.execute_query(query, params=(name,))
+        await self.sql_driver.execute_query(cast(LiteralString, query), params=[name])
         logger.info(f"Removed migration record: {name}")
 
     async def get_migrations_in_batch(self, batch: int) -> list[MigrationRecord]:
@@ -153,7 +173,7 @@ class MigrationTracker:
         WHERE batch = %s
         ORDER BY id DESC
         """
-        rows = await self.sql_driver.execute_query(query, params=(batch,))
+        rows = await self.sql_driver.execute_query(cast(LiteralString, query), params=[batch])
         if not rows:
             return []
 
@@ -181,10 +201,10 @@ class MigrationTracker:
         SELECT 1 FROM {self.table_name}
         WHERE name = %s
         """
-        rows = await self.sql_driver.execute_query(query, params=(name,))
+        rows = await self.sql_driver.execute_query(cast(LiteralString, query), params=[name])
         return bool(rows)
 
-    async def get_migration_status(self) -> dict:
+    async def get_migration_status(self) -> MigrationStatus:
         """Get migration status summary.
 
         Returns:
@@ -193,15 +213,15 @@ class MigrationTracker:
         applied = await self.get_applied_migrations()
         latest_batch = await self.get_latest_batch()
 
-        return {
-            "total_applied": len(applied),
-            "latest_batch": latest_batch,
-            "migrations": [
-                {
-                    "name": m.name,
-                    "applied_at": m.applied_at.isoformat(),
-                    "batch": m.batch,
-                }
+        return MigrationStatus(
+            total_applied=len(applied),
+            latest_batch=latest_batch,
+            migrations=[
+                MigrationStatusEntry(
+                    name=m.name,
+                    applied_at=m.applied_at.isoformat(),
+                    batch=m.batch,
+                )
                 for m in applied
             ],
-        }
+        )
