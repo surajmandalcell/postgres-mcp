@@ -167,7 +167,7 @@ class SequenceHealthCalc:
                 in_quotes = not in_quotes
                 # Keep the quotes for now, we'll strip them later
                 current_part += char
-            elif char == '.' and not in_quotes:
+            elif char == "." and not in_quotes:
                 if current_part:
                     parts.append(current_part)
                 current_part = ""

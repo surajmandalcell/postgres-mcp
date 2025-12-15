@@ -481,15 +481,9 @@ class SchemaPull:
                 lines.append(fk_sql)
             elif constraint.constraint_type == "UNIQUE":
                 cols = ", ".join(f'"{c}"' for c in constraint.columns)
-                lines.append(
-                    f'ALTER TABLE "{table.schema}"."{table.name}" '
-                    f'ADD CONSTRAINT "{constraint.name}" UNIQUE ({cols});'
-                )
+                lines.append(f'ALTER TABLE "{table.schema}"."{table.name}" ADD CONSTRAINT "{constraint.name}" UNIQUE ({cols});')
             elif constraint.constraint_type == "CHECK" and constraint.check_clause:
-                lines.append(
-                    f'ALTER TABLE "{table.schema}"."{table.name}" '
-                    f'ADD CONSTRAINT "{constraint.name}" CHECK ({constraint.check_clause});'
-                )
+                lines.append(f'ALTER TABLE "{table.schema}"."{table.name}" ADD CONSTRAINT "{constraint.name}" CHECK ({constraint.check_clause});')
 
         # Add indexes (excluding primary key)
         for index in table.indexes:
@@ -499,17 +493,12 @@ class SchemaPull:
         # Add comment
         if table.comment:
             escaped_comment = table.comment.replace("'", "''")
-            lines.append(
-                f"COMMENT ON TABLE \"{table.schema}\".\"{table.name}\" IS '{escaped_comment}';"
-            )
+            lines.append(f'COMMENT ON TABLE "{table.schema}"."{table.name}" IS \'{escaped_comment}\';')
 
         # Add column comments
         for col in table.columns:
             if col.comment:
                 escaped_comment = col.comment.replace("'", "''")
-                lines.append(
-                    f'COMMENT ON COLUMN "{table.schema}"."{table.name}"."{col.name}" '
-                    f"IS '{escaped_comment}';"
-                )
+                lines.append(f'COMMENT ON COLUMN "{table.schema}"."{table.name}"."{col.name}" IS \'{escaped_comment}\';')
 
         return "\n".join(lines)

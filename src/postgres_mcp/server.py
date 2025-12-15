@@ -58,6 +58,7 @@ class HypotheticalIndex(BaseModel):
     columns: list[str] = Field(description="List of column names to include in the index (e.g., ['email'] or ['last_name', 'first_name'])")
     using: str = Field(default="btree", description="Index method (default: 'btree', other options include 'hash', 'gist', 'gin', 'brin')")
 
+
 ResponseType = List[types.TextContent | types.ImageContent | types.EmbeddedResource]
 
 logger = logging.getLogger(__name__)
