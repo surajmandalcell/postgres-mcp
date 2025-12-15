@@ -37,11 +37,10 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
-LABEL org.opencontainers.image.description="Postgres MCP Agent - Multi-architecture container (${TARGETPLATFORM})"
-LABEL org.opencontainers.image.source="https://github.com/crystaldba/postgres-mcp"
-LABEL org.opencontainers.image.licenses="Apache-2.0"
-LABEL org.opencontainers.image.vendor="Crystal DBA"
-LABEL org.opencontainers.image.url="https://www.crystaldba.ai"
+LABEL org.opencontainers.image.description="pgsql-mcp - PostgreSQL MCP Server (${TARGETPLATFORM})"
+LABEL org.opencontainers.image.source="https://github.com/surajmandalcell/postgres-mcp"
+LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.vendor="surajmandalcell"
 
 # Install runtime system dependencies
 RUN apt-get update && apt-get install -y \
@@ -57,9 +56,9 @@ RUN chmod +x /app/docker-entrypoint.sh
 # Expose the SSE port
 EXPOSE 8000
 
-# Run the postgres-mcp server
+# Run the pgsql-mcp server
 # Users can pass a database URI or individual connection arguments:
-#   docker run -it --rm postgres-mcp postgres://user:pass@host:port/dbname
-#   docker run -it --rm postgres-mcp -h myhost -p 5432 -U myuser -d mydb
-ENTRYPOINT ["/app/docker-entrypoint.sh", "postgres-mcp"]
+#   docker run -it --rm pgsql-mcp postgres://user:pass@host:port/dbname
+#   docker run -it --rm pgsql-mcp -h myhost -p 5432 -U myuser -d mydb
+ENTRYPOINT ["/app/docker-entrypoint.sh", "pgsql-mcp"]
 CMD []

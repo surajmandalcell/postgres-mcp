@@ -1,7 +1,7 @@
-# Postgres MCP
+# pgsql-mcp
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![PyPI - Version](https://img.shields.io/pypi/v/postgres-mcp)](https://pypi.org/project/postgres-mcp/)
+[![PyPI - Version](https://img.shields.io/pypi/v/pgsql-mcp)](https://pypi.org/project/pgsql-mcp/)
 
 A PostgreSQL MCP server with index tuning, explain plans, health checks, and safe SQL execution.
 
@@ -24,7 +24,7 @@ For Claude Code or cloud-based IDEs, add to your MCP configuration:
   "mcpServers": {
     "postgres": {
       "command": "uvx",
-      "args": ["postgres-mcp", "--access-mode=unrestricted"],
+      "args": ["pgsql-mcp", "--access-mode=unrestricted"],
       "env": {
         "DATABASE_URI": "postgresql://username:password@localhost:5432/dbname"
       }
@@ -41,7 +41,7 @@ For Claude Code or cloud-based IDEs, add to your MCP configuration:
 ```bash
 docker run -p 8000:8000 \
   -e DATABASE_URI=postgresql://username:password@localhost:5432/dbname \
-  crystaldba/postgres-mcp --access-mode=unrestricted --transport=sse
+  pgsql-mcp --access-mode=unrestricted --transport=sse
 ```
 
 2. Add to your MCP config (`mcp.json` for Cursor, `mcp_config.json` for Windsurf):
@@ -69,7 +69,7 @@ docker run -p 8000:8000 \
       "args": [
         "run", "-i", "--rm",
         "-e", "DATABASE_URI",
-        "crystaldba/postgres-mcp",
+        "pgsql-mcp",
         "--access-mode=unrestricted"
       ],
       "env": {
@@ -80,32 +80,32 @@ docker run -p 8000:8000 \
 }
 ```
 
-### Docker MCP Platform
+### Docker
 
 ```bash
-docker pull crystaldba/postgres-mcp
+docker pull pgsql-mcp
 ```
 
 Run with stdio:
 ```bash
 docker run -i --rm \
   -e DATABASE_URI=postgresql://username:password@localhost:5432/dbname \
-  crystaldba/postgres-mcp --access-mode=unrestricted
+  pgsql-mcp --access-mode=unrestricted
 ```
 
 Run with SSE:
 ```bash
 docker run -p 8000:8000 \
   -e DATABASE_URI=postgresql://username:password@localhost:5432/dbname \
-  crystaldba/postgres-mcp --access-mode=unrestricted --transport=sse
+  pgsql-mcp --access-mode=unrestricted --transport=sse
 ```
 
 ### Python Installation
 
 ```bash
-pipx install postgres-mcp
+pipx install pgsql-mcp
 # or
-uv pip install postgres-mcp
+uv pip install pgsql-mcp
 ```
 
 ## Access Modes

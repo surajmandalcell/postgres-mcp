@@ -1,11 +1,11 @@
-# Docker Compose configuration for Postgres MCP Pro
+# Docker Compose configuration for pgsql-mcp
 # See README.md for full documentation
 
 version: '3.8'
 
 services:
-  postgres-mcp:
-    image: crystaldba/postgres-mcp
+  pgsql-mcp:
+    image: pgsql-mcp
     ports:
       - "8000:8000"
     environment:
